@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Prayer Time Reminder",
+  "version": "1.0",
+  "description": "Reminds you when it's time for prayer with notifications.",
+  "permissions": [
+    "alarms",
+    "notifications",
+    "geolocation",
+    "storage"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "128": "icons/icon128.png"
+  }
+}
