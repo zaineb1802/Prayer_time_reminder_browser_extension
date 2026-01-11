@@ -35,11 +35,13 @@ chrome.runtime.onMessage.addListener((msg) => {
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
-  chrome.notifications.create({
-    type: "basic",
-    iconUrl: "icons/icon128.png",
-    title: "Prayer Reminder",
-    message: `🕌 It's time for ${alarm.name} prayer.`,
-    priority: 2
-  });
+  if (mainPrayers.includes(alarm.name)) {
+    chrome.notifications.create({
+      type: "basic",
+      iconUrl: "icons/icon128.png",
+      title: "Prayer Reminder",
+      message: `🕌 It's time for ${alarm.name} prayer.`,
+      priority: 2
+    });
+  }
 });
