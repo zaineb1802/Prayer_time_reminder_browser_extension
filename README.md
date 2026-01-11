@@ -18,13 +18,13 @@ Prayer Time Reminder is a chromium-based browser extension that notifies muslim 
 
 ## Project Structure
 ```
-├── background.js # Background service worker for alarms and notifications
-├── popup.html # Extension popup displaying prayer times
-├── popup.js # Logic for fetching and displaying prayer times
-├── styles.css # Styling for the popup interface
-├── manifest.json # Chrome extension manifest file
+├── background.js 
+├── popup.html 
+├── popup.js 
+├── styles.css 
+├── manifest.json 
 └── icons/
-└── icon128.png # Extension icon
+└── icon128.png 
 ```
 
 ## Installation
