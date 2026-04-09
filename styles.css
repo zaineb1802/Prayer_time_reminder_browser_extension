@@ -1,20 +1,46 @@
 body {
-  font-family: Arial, sans-serif;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   margin: 0;
-  padding: 15px;
-  background: #f5f7fa;
-  color: #333;
-  width: 250px;
+  padding: 0;
+  width: 220px;
+  background-color: #ffffff;
 }
 
-h2 {
+.container {
+  padding: 15px;
+}
+
+h3 {
+  margin: 0 0 15px 0;
+  color: #008080;
   text-align: center;
-  color: #006b6b;
+  font-size: 1.1rem;
 }
 
 .time-row {
   display: flex;
   justify-content: space-between;
-  padding: 6px 0;
-  border-bottom: 1px solid #ddd;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.time-row:last-child {
+  border-bottom: none;
+}
+
+.prayer-name {
+  font-weight: 600;
+  color: #444;
+}
+
+.prayer-time {
+  color: #008080;
+  font-weight: bold;
+}
+
+.loading {
+  text-align: center;
+  color: #888;
+  font-size: 0.9rem;
 }

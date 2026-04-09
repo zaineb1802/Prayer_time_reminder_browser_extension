@@ -1,22 +1,23 @@
 {
   "manifest_version": 3,
   "name": "Prayer Time Reminder",
-  "version": "1.0",
-  "description": "Reminds you when it's time for prayer with notifications.",
+  "version": "1.1",
+  "description": "Accurate daily prayer reminders based on your location.",
   "permissions": [
     "alarms",
     "notifications",
     "geolocation",
     "storage"
   ],
+  "host_permissions": [
+    "https://api.aladhan.com/*"
+  ],
   "background": {
     "service_worker": "background.js"
   },
   "action": {
     "default_popup": "popup.html",
-    "default_icon": {
-      "128": "icons/icon128.png"
-    }
+    "default_title": "View Prayer Times"
   },
   "icons": {
     "128": "icons/icon128.png"

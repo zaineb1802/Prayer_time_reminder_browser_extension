@@ -1,73 +1,57 @@
 const mainPrayers = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
 
-function getTodayDate() {
-  const today = new Date();
-  const day = today.getDate();
-  const month = today.getMonth() + 1;
-  const year = today.getFullYear();
-  return `${day}-${month}-${year}`;
-}
+async function init() {
+  const result = await chrome.storage.local.get(['latitude', 'longitude', 'prayerTimes', 'cachedDate']);
+  const todayDate = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
 
-async function loadPrayerTimes() {
-  const todayDate = getTodayDate();
-  
-  chrome.storage.local.get(['latitude', 'longitude', 'prayerTimes', 'cachedDate'], async (result) => {
-    let latitude, longitude;
-    
-    if (result.latitude && result.longitude) {
-      latitude = result.latitude;
-      longitude = result.longitude;
-    } else {
-      try {
-        const pos = await new Promise((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject);
-        });
-        latitude = pos.coords.latitude;
-        longitude = pos.coords.longitude;
-        chrome.storage.local.set({ latitude, longitude });
-      } catch (error) {
-        document.getElementById("times").innerHTML = "<p>Error getting location. Please enable geolocation.</p>";
-        return;
-      }
-    }
-    
-    chrome.runtime.sendMessage({ latitude, longitude });
-    
-    if (result.prayerTimes && result.cachedDate === todayDate) {
+  if (result.latitude && result.longitude) {
+    if (result.cachedDate === todayDate && result.prayerTimes) {
       displayPrayerTimes(result.prayerTimes);
     } else {
-      try {
-        const res = await fetch(
-          `https://api.aladhan.com/v1/timings/${todayDate}?latitude=${latitude}&longitude=${longitude}&method=2`
-        );
-        const data = await res.json();
-        const times = data.data.timings;
-        
-        chrome.storage.local.set({ 
-          prayerTimes: times, 
-          cachedDate: todayDate 
-        });
-        
-        displayPrayerTimes(times);
-      } catch (error) {
-        document.getElementById("times").innerHTML = "<p>Error fetching prayer times.</p>";
-      }
+      fetchTimes(result.latitude, result.longitude, todayDate);
     }
-  });
+  } else {
+    getLocation(todayDate);
+  }
+}
+
+function getLocation(todayDate) {
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const { latitude, longitude } = pos.coords;
+      chrome.storage.local.set({ latitude, longitude });
+      fetchTimes(latitude, longitude, todayDate);
+      // Tell background to set alarms now that we have location
+      chrome.runtime.sendMessage({ type: "UPDATE_ALARMS" });
+    },
+    () => {
+      document.getElementById("times").innerHTML = "<p>Please enable location permissions.</p>";
+    }
+  );
+}
+
+async function fetchTimes(lat, lon, date) {
+  try {
+    const res = await fetch(`https://api.aladhan.com/v1/timings/${date}?latitude=${lat}&longitude=${lon}&method=2`);
+    const data = await res.json();
+    const times = data.data.timings;
+
+    chrome.storage.local.set({ prayerTimes: times, cachedDate: date });
+    displayPrayerTimes(times);
+    chrome.runtime.sendMessage({ type: "UPDATE_ALARMS" });
+  } catch (e) {
+    document.getElementById("times").innerHTML = "<p>Connection error.</p>";
+  }
 }
 
 function displayPrayerTimes(times) {
   const timesDiv = document.getElementById("times");
-  timesDiv.innerHTML = "";
-  
-  for (const name of mainPrayers) {
-    if (times[name]) {
-      const row = document.createElement("div");
-      row.className = "time-row";
-      row.innerHTML = `<strong>${name}</strong>: ${times[name]}`;
-      timesDiv.appendChild(row);
-    }
-  }
+  timesDiv.innerHTML = mainPrayers.map(name => `
+    <div class="time-row">
+      <span class="prayer-name">${name}</span>
+      <span class="prayer-time">${times[name]}</span>
+    </div>
+  `).join('');
 }
 
-loadPrayerTimes();
+init();
