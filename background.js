@@ -1,59 +1,94 @@
 const mainPrayers = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
+const prayerAlarmPrefix = 'next_prayer:';
+const staleAlarmTolerance = 60 * 1000;
+
+importScripts('prayer-times.js');
 
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.alarms.create('periodic_update', { periodInMinutes: 720 }); 
+  chrome.alarms.create('periodic_update', { periodInMinutes: 360 });
+  void setPrayerAlarm();
 });
 
-async function setPrayerAlarms() {
-  const data = await chrome.storage.local.get(['latitude', 'longitude']);
-  if (!data.latitude || !data.longitude) return;
+async function clearPrayerAlarms() {
+  await chrome.alarms.clear('next_prayer');
+  for (const name of mainPrayers) {
+    await chrome.alarms.clear(name);
+    await chrome.alarms.clear(`${prayerAlarmPrefix}${name}`);
+  }
+}
 
-  const today = new Date();
-  const todayStr = `${today.getDate()}-${today.getMonth() + 1}-${today.getFullYear()}`;
-
+async function setPrayerAlarm() {
   try {
-    const res = await fetch(
-      `https://api.aladhan.com/v1/timings/${todayStr}?latitude=${data.latitude}&longitude=${data.longitude}&method=2`
-    );
-    const json = await res.json();
-    const timings = json.data.timings;
+    await clearPrayerAlarms();
+    const location = await chrome.storage.local.get(['latitude', 'longitude']);
+    if (typeof location.latitude !== 'number' || typeof location.longitude !== 'number') return;
 
-    for (const name of mainPrayers) {
-      await chrome.alarms.clear(name);
-    }
+    let dailyTimes = await PrayerTimes.fetchPrayerTimes(location.latitude, location.longitude);
+    let nextPrayer;
 
-    const now = Date.now();
+    for (let dayOffset = 0; dayOffset < 2 && !nextPrayer; dayOffset += 1) {
+      if (dayOffset > 0) {
+        const nextDate = PrayerTimes.getNextCalendarDate(dailyTimes.date);
+        dailyTimes = await PrayerTimes.requestPrayerTimesForDate(
+          location.latitude,
+          location.longitude,
+          nextDate
+        );
+      }
 
-    for (const name of mainPrayers) {
-      const [hour, minute] = timings[name].split(':').map(Number);
-      const prayerTime = new Date();
-      prayerTime.setHours(hour, minute, 0, 0);
-
-      if (prayerTime.getTime() > now) {
-        chrome.alarms.create(name, { when: prayerTime.getTime() });
+      for (const name of mainPrayers) {
+        const timestamp = PrayerTimes.getPrayerTimestamp(
+          dailyTimes.date,
+          dailyTimes.timings[name],
+          dailyTimes.timezone
+        );
+        if (timestamp > Date.now() && (!nextPrayer || timestamp < nextPrayer.timestamp)) {
+          nextPrayer = { name, timestamp };
+        }
       }
     }
+
+    if (nextPrayer) {
+      chrome.alarms.create(`${prayerAlarmPrefix}${nextPrayer.name}`, {
+        when: nextPrayer.timestamp
+      });
+    } else {
+      throw new Error('No upcoming prayer time was returned');
+    }
   } catch (error) {
-    console.error("Failed to fetch prayer times:", error);
+    console.error('Failed to schedule the next prayer:', error);
   }
 }
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'periodic_update') {
-    setPrayerAlarms();
-  } else if (mainPrayers.includes(alarm.name)) {
+    void setPrayerAlarm();
+  } else if (alarm.name.startsWith(prayerAlarmPrefix)) {
+    if (alarm.scheduledTime && Date.now() - alarm.scheduledTime > staleAlarmTolerance) {
+      void setPrayerAlarm();
+      return;
+    }
+
+    const prayerName = alarm.name.slice(prayerAlarmPrefix.length);
     chrome.notifications.create({
-      type: "basic",
-      iconUrl: "icons/icon128.png",
-      title: "Prayer Reminder",
-      message: `🕌 It's time for ${alarm.name}.`,
+      type: 'basic',
+      iconUrl: 'icons/icon128.png',
+      title: 'Prayer Reminder',
+      message: `🕌 It's time for ${prayerName}.`,
       priority: 2
     });
+    void setPrayerAlarm();
+  } else if (mainPrayers.includes(alarm.name)) {
+    void chrome.alarms.clear(alarm.name);
   }
 });
 
+chrome.runtime.onStartup.addListener(() => {
+  void setPrayerAlarm();
+});
+
 chrome.runtime.onMessage.addListener((msg) => {
-  if (msg.type === "UPDATE_ALARMS") {
-    setPrayerAlarms();
+  if (msg.type === 'UPDATE_ALARMS') {
+    void setPrayerAlarm();
   }
 });
